@@ -29,7 +29,7 @@ fn main() -> ExitCode {
                             }
                         }
                     } else if file_type.is_dir() {
-                        if let Err(error) = print_directory_tree(path) {
+                        if let Err(error) = print_directory_tree(path, 0) {
                             eprintln!("rat: {}: {error}", path.display());
                             return ExitCode::FAILURE;
                         }
@@ -76,12 +76,24 @@ fn print_file_content(file: &mut File) -> io::Result<()> {
     Ok(())
 }
 
-fn print_directory_tree(path: &Path) -> io::Result<()> {
-    let entries = fs::read_dir(path)?;
+fn print_directory_tree(path: &Path, depth: usize) -> io::Result<()> {
+    let mut entries = fs::read_dir(path)?
+        .collect::<io::Result<Vec<_>>>()?;
+
+    entries.sort_by_key(|entry|entry.file_name());
 
     for entry in entries {
-        let entry = entry?;
+        let entry_path = entry.path();
+
+        for _ in 0..depth {
+            print!("  ");
+        }
+
         println!("{}", entry.file_name().to_string_lossy());
+
+        if entry.file_type()?.is_dir() {
+            print_directory_tree(&entry_path, depth + 1)?;
+        }
     }
 
     Ok(())
