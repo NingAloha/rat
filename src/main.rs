@@ -29,7 +29,7 @@ fn main() -> ExitCode {
                             }
                         }
                     } else if file_type.is_dir() {
-                        if let Err(error) = print_directory_tree(path, 0, 2) {
+                        if let Err(error) = print_directory_tree(path, 0, -1) {
                             eprintln!("rat: {}: {error}", path.display());
                             return ExitCode::FAILURE;
                         }
