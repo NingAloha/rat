@@ -1,7 +1,9 @@
 use std::env;
+use std::fs;
 use std::fs::File;
 use std::io;
 use std::io::Write;
+use std::path::Path;
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
@@ -9,22 +11,22 @@ fn main() -> ExitCode {
 
     match args.len() {
         2 => {
-            let path: &str = &args[1];
+            let path= Path::new(&args[1]);
 
             match File::open(path) {
                 Ok(mut file) => {
-                    if let Err(error) = print_file_info(&file, path) {
-                        eprintln!("rat: {path}: {error}");
+                    if let Err(error) = print_file_info(path) {
+                        eprintln!("rat: {}: {error}", &args[1]);
                         return ExitCode::FAILURE;
                     }
 
                     if let Err(error) = print_file_content(&mut file) {
-                        eprintln!("rat: {path}: {error}");
+                        eprintln!("rat: {}: {error}", &args[1]);
                         return ExitCode::FAILURE;
                     }
                 }
                 Err(error) => {
-                    eprintln!("rat: {path}: {error}");
+                    eprintln!("rat: {}: {error}", &args[1]);
                     return ExitCode::FAILURE;
                 }
             }
@@ -37,9 +39,8 @@ fn main() -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn print_file_info(file: &File, path: &str) -> io::Result<()> {
-    let mut stdout = io::stdout().lock();
-    let metadata = file.metadata()?;
+fn print_file_info(path: &Path) -> io::Result<()> {
+    let metadata = fs::metadata(path)?;
 
     let file_type = if metadata.is_file() {
         "Regular file"
@@ -49,7 +50,9 @@ fn print_file_info(file: &File, path: &str) -> io::Result<()> {
         "Other"
     };
 
-    writeln!(stdout, "File: {path}")?;
+    let mut stdout = io::stdout().lock();
+
+    writeln!(stdout, "Path: {}", path.display())?;
     writeln!(stdout, "Type: {file_type}")?;
     writeln!(stdout, "Size: {} bytes", metadata.len())?;
     writeln!(stdout, "------------------------")?;
