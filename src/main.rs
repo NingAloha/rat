@@ -1,6 +1,6 @@
 use std::env;
 use std::fs;
-use std::fs::File;
+use std::fs::{File, FileType};
 use std::io;
 use std::io::Write;
 use std::path::Path;
@@ -11,18 +11,28 @@ fn main() -> ExitCode {
 
     match args.len() {
         2 => {
-            let path= Path::new(&args[1]);
+            let path = Path::new(&args[1]);
 
-            match File::open(path) {
-                Ok(mut file) => {
-                    if let Err(error) = print_file_info(path) {
-                        eprintln!("rat: {}: {error}", &args[1]);
-                        return ExitCode::FAILURE;
-                    }
-
-                    if let Err(error) = print_file_content(&mut file) {
-                        eprintln!("rat: {}: {error}", &args[1]);
-                        return ExitCode::FAILURE;
+            match print_path_info(path) {
+                Ok(file_type) => {
+                    if file_type.is_file() {
+                        match File::open(path) {
+                            Ok(mut file) => {
+                                if let Err(error) = print_file_content(&mut file) {
+                                    eprintln!("rat: {}: {error}", path.display());
+                                    return ExitCode::FAILURE;
+                                }
+                            }
+                            Err(error) => {
+                                eprintln!("rat: {}: {error}", &args[1]);
+                                return ExitCode::FAILURE;
+                            }
+                        }
+                    } else if file_type.is_dir() {
+                        if let Err(error) = print_directory_tree(path) {
+                            eprintln!("rat: {}: {error}", path.display());
+                            return ExitCode::FAILURE;
+                        }
                     }
                 }
                 Err(error) => {
@@ -39,12 +49,13 @@ fn main() -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn print_file_info(path: &Path) -> io::Result<()> {
+fn print_path_info(path: &Path) -> io::Result<FileType> {
     let metadata = fs::metadata(path)?;
+    let file_type = metadata.file_type();
 
-    let file_type = if metadata.is_file() {
+    let type_name = if file_type.is_file() {
         "Regular file"
-    } else if metadata.is_dir() {
+    } else if file_type.is_dir() {
         "Directory"
     } else {
         "Other"
@@ -53,15 +64,25 @@ fn print_file_info(path: &Path) -> io::Result<()> {
     let mut stdout = io::stdout().lock();
 
     writeln!(stdout, "Path: {}", path.display())?;
-    writeln!(stdout, "Type: {file_type}")?;
+    writeln!(stdout, "Type: {type_name}")?;
     writeln!(stdout, "Size: {} bytes", metadata.len())?;
     writeln!(stdout, "------------------------")?;
 
-    Ok(())
+    Ok(file_type)
 }
 
 fn print_file_content(file: &mut File) -> io::Result<()> {
     io::copy(file, &mut io::stdout())?;
+    Ok(())
+}
+
+fn print_directory_tree(path: &Path) -> io::Result<()> {
+    let entries = fs::read_dir(path)?;
+
+    for entry in entries {
+        let entry = entry?;
+        println!("{}", entry.file_name().to_string_lossy());
+    }
 
     Ok(())
 }
