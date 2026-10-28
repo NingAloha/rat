@@ -38,22 +38,21 @@ fn main() -> ExitCode {
 }
 
 fn print_file_info(file: &File, path: &str) -> io::Result<()> {
+    let mut stdout = io::stdout().lock();
     let metadata = file.metadata()?;
 
     let file_type = if metadata.is_file() {
         "Regular file"
     } else if metadata.is_dir() {
         "Directory"
-    } else if metadata.is_symlink() {
-        "Symbolic link"
     } else {
         "Other"
     };
 
-    writeln!(io::stdout(), "File: {path}")?;
-    writeln!(io::stdout(), "Type: {file_type}")?;
-    writeln!(io::stdout(), "Size: {} bytes", metadata.len())?;
-    writeln!(io::stdout(), "------------------------")?;
+    writeln!(stdout, "File: {path}")?;
+    writeln!(stdout, "Type: {file_type}")?;
+    writeln!(stdout, "Size: {} bytes", metadata.len())?;
+    writeln!(stdout, "------------------------")?;
 
     Ok(())
 }
