@@ -24,6 +24,20 @@ One letter changes, one language changes, and the mouse gets its turn.
 
 **Give it a path, and let the rat figure out what to do.**
 
+## Meet Rusty 🐀
+
+![Rusty, the rat terminal mascot, beside a wedge of cheese](assets/rat-mascot.png)
+
+Run `rat` without a path and Rusty arrives with its cheese:
+
+```bash
+cargo run
+```
+
+Rusty is the terminal mascot for `rat`: a little mouse made in Rust. Its name nods both to the Rust language and to the English word *rusty*—a little weathered around the edges, but still eager to chase a C cat.
+
+No-argument mode prints the colorful mascot, the current terminal slogan, and `Usage: rat <path>`, then exits successfully. There is no interactive menu hiding behind the cheese.
+
 ## Features
 
 ### File Inspection
