@@ -12,6 +12,9 @@ fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();
 
     match args.len() {
+        1 => {
+            print_rat();
+        }
         2 => {
             let path = Path::new(&args[1]);
 
@@ -26,6 +29,105 @@ fn main() -> ExitCode {
         }
     }
     ExitCode::SUCCESS
+}
+
+fn print_rat() {
+    const ART: &[&str] = &[
+        "     pppp",
+        "    pPPppPp",
+        "   pPpmmmpPp                             OO",
+        "  pPp     pP                      OdllO dmmm",
+        " pPp       P                     OmppPlOddmPp",
+        " Pp       pp           OOOOO     dpPPPPlOOmPP",
+        "pPp     pPp        ffOmmmmmmOdO  mPPPPPpdOdpP",
+        "pPp               OOmmmmmmmmmmdO mPPPPPpmOOpP                           f",
+        "pPp             OddmmmmmllmmmmmddOPPPPppmOmdO                          pHp",
+        "pPp           OOmmmmmmmmmmmmmmmmdOmPPPPOmdmmmdO                      pHHoHp",
+        " PPp         OddmmmmmmmmmmmmmlmmmdOdpPppmmllmldO                    yHHHHHHp",
+        " pPP        OdddmmmmmmmmmmmmmmmmmmddOOmmmmmmmllm                  pHHyyyoHHY",
+        "  pPp       OOmdmmmlmmmmmmmmmmmmmmmmmmmmllmdOOmlm     l         pHHyHyoooHHHp",
+        "  OpPp     fOdmmmmlllmmmmmmmmmmmmmmmmmmlllmOpOmmlOll l        fyHHHHHYooYHHHYf",
+        "    PPPOO  OddmmmmllllmmmmmmmmmmmmmmmmmmmlmmOpmmmmdO lll      YHoHHHHHHHHHHHyp",
+        "     pPPPPpOddmmmmmlllmddmmmmmmmmmlmmmmmmmmmmmmmmpPp        pHHHoHHHHHHHYoYYop",
+        "      pppppOdddmmmmmmlmmddmmmmmmmmmmmmmmfffffflfffpd  l    YHHHHHHYYYYYYYYYYop",
+        "        pppOOdmmmmmmmmmdddmmmmmmmmmmmmmmfffflffldO       pHHYYYYYYYYYYyyYYYYop",
+        "           OOddmmmmmmmmddmmmmmmdmmmmlllfllllldf l        pYYYYYYYYYYYooooYYYop",
+        "            OOddddmmmmdmmmmffmdmmmlllffllf      l        pYYYYyyYYYoYYooHYYYop",
+        "            OOddmmmdddmlfffffflmmmlfmlfmd    l            yYYyooyYYYYYHYYYYYop",
+        "             pmmddOdOlffflfffllldmlfflOO                  pYYyoooYYYYYYYYoYYop",
+        "             pPpOOOppOlOOOmmOlOOOdmp  OPpp               pYYYHooYYYYoyYYYYYYop",
+        "             pPPp   pPPm          pPPp pPpp              pYYYYYYYYYYyYYYYYYYop",
+        "              PPPp  ppp           pPPPp ppp              pYYYYYYYYYYHYYYYYYYop",
+        "               ppp                 pppp",
+    ];
+
+    fn color(pixel: char) -> Option<(u8, u8, u8)> {
+        Some(match pixel {
+            // Mouse outline and layered blue-gray fur.
+            'O' => (37, 45, 56),
+            'd' => (72, 88, 110),
+            'm' => (112, 133, 160),
+            'l' => (165, 184, 204),
+            'f' => (231, 232, 226),
+
+            // Pink tail, ears, paws, and nose.
+            'p' => (190, 86, 109),
+            'P' => (246, 151, 162),
+
+            // Cheese, highlights, and holes.
+            'y' => (248, 166, 20),
+            'Y' => (255, 205, 55),
+            'H' => (255, 233, 126),
+            'o' => (184, 83, 8),
+
+            // Whiskers.
+            'w' => (191, 183, 170),
+
+            _ => return None,
+        })
+    }
+
+    fn pixel_at(row: &str, column: usize) -> char {
+        row.as_bytes()
+            .get(column)
+            .copied()
+            .map(char::from)
+            .unwrap_or(' ')
+    }
+
+    let width = ART.iter().map(|row| row.len()).max().unwrap_or(0);
+
+    for top_index in (0..ART.len()).step_by(2) {
+        let top = ART[top_index];
+        let bottom = ART.get(top_index + 1).copied().unwrap_or("");
+
+        for column in 0..width {
+            let upper = color(pixel_at(top, column));
+            let lower = color(pixel_at(bottom, column));
+
+            match (upper, lower) {
+                (Some((r1, g1, b1)), Some((r2, g2, b2))) => {
+                    print!("\x1b[38;2;{r1};{g1};{b1}m");
+                    print!("\x1b[48;2;{r2};{g2};{b2}m▀");
+                }
+                (Some((r, g, b)), None) => {
+                    print!("\x1b[38;2;{r};{g};{b}m▀");
+                }
+                (None, Some((r, g, b))) => {
+                    print!("\x1b[38;2;{r};{g};{b}m▄");
+                }
+                (None, None) => print!(" "),
+            }
+
+            print!("\x1b[0m");
+        }
+
+        println!();
+    }
+
+    println!();
+    println!("  \x1b[38;2;255;205;55mrat\x1b[0m — a little Rusty mouse chasing a C cat.");
+    println!("  Usage: \x1b[38;2;165;184;204mrat <path>\x1b[0m");
 }
 
 fn run(path: &Path) -> io::Result<()> {
