@@ -1,16 +1,18 @@
 # rat 🐀
 
+[简体中文](README.zh-CN.md)
+
 **A little Rusty rat chasing a C cat.**
 
 `rat` is a tiny command-line utility written in Rust for exploring files and directories.
 
-It started as a simple exercise in reimplementing `cat`, but quickly grew into something a little different: a tool that knows whether you're looking at a file or a directory and behaves accordingly.
+It began as a simple exercise in reimplementing `cat`, but evolved into something a little different: a tool that automatically recognizes whether a path refers to a file or a directory and displays it accordingly.
 
-No frameworks. No external dependencies. Just Rust and its standard library.
+One Rust source file. Zero external dependencies. Just a little rat doing its thing.
 
 ## Why rat?
 
-The name is a little wordplay:
+The name is a small piece of wordplay:
 
 - **cat** is traditionally written in **C**.
 - **rat** is written in **Rust**.
@@ -18,33 +20,41 @@ The name is a little wordplay:
 
 One letter changes, one language changes, and the mouse gets its turn.
 
-Unlike `cat`, which primarily prints file contents, `rat` also shows file metadata and explores directory structures.
+`rat` borrows a few ideas from `cat`, `stat`, and `tree`, but isn't intended to replace any of them. It's a personal Rust learning project built around a simple idea:
 
-It's not trying to replace `cat`, `tree`, or `ls`. It's just a small experiment in what happens when you combine a few of their ideas.
+**Give it a path, and let the rat figure out what to do.**
 
 ## Features
 
-**Files**
+### File Inspection
+
 - Display the path, type, and size.
-- Print file contents byte-for-byte, without modification.
-- Preserve whitespace and missing trailing newlines.
+- Print file contents byte-for-byte.
+- Preserve original whitespace, encoding, and trailing newlines (or their absence).
+- Report file access and I/O errors.
 
-**Directories**
-- Display directory metadata.
-- Recursively explore subdirectories.
-- Sort entries by filename.
-- Indent entries to represent directory depth.
-- Support a configurable maximum traversal depth in the source code.
+### Directory Exploration
 
-**Under the hood**
-- Written entirely in Rust.
+- Automatically recognize directories.
+- Traverse subdirectories recursively.
+- Sort entries alphabetically by filename.
+- Display directory hierarchy using indentation.
+- Support a configurable maximum recursion depth in the source code.
+- Skip unwanted files and directories using embedded ignore rules.
+
+### Under the Hood
+
+- Written in Rust (Edition 2024).
 - Zero external dependencies.
 - A single Rust source file.
-- Error handling using `Result` and meaningful exit codes.
+- Uses Rust's standard filesystem and I/O APIs.
+- Error handling with `Result`, `?`, and exit codes.
 
 ## Getting Started
 
-You'll need Rust and Cargo installed.
+### Requirements
+
+Rust and Cargo.
 
 Clone the repository and build:
 
@@ -54,7 +64,13 @@ cd rat
 cargo build --release
 ```
 
-Or run directly with Cargo:
+The executable will be available at:
+
+```text
+target/release/rat
+```
+
+You can also run it directly with Cargo:
 
 ```bash
 cargo run -- <path>
@@ -62,7 +78,7 @@ cargo run -- <path>
 
 ## Usage
 
-### Inspect a file
+### Inspect a File
 
 ```bash
 cargo run -- Cargo.toml
@@ -83,9 +99,9 @@ edition = "2024"
 [dependencies]
 ```
 
-`rat` copies file contents directly to standard output without changing the original bytes.
+File contents are copied directly to standard output without adding, removing, or modifying any bytes.
 
-### Explore a directory
+### Explore a Directory
 
 ```bash
 cargo run -- src
@@ -101,68 +117,148 @@ Size: 96 bytes
 main.rs
 ```
 
-Directories are explored recursively, with indentation indicating nesting levels.
+For directories containing subdirectories, `rat` uses indentation to show their structure.
 
-### ⚠️ A Note on Recursion Depth
-
-**The current default is unlimited recursion (`max_depth = -1`).**
-
-Running `rat` on a large directory, especially one containing `.git`, `target`, or `node_modules`, may produce an enormous amount of terminal output.
-
-For now, the maximum recursion depth is configured directly in `src/main.rs`, rather than through a command-line option.
-
-To limit the depth, locate the call to `print_directory_tree()` and change its final argument:
-
-```rust
-print_directory_tree(path, 0, -1) // Unlimited recursion
-print_directory_tree(path, 0, 2)  // Limit recursion to 2 levels
+```text
+project
+    docs
+        guide.md
+    src
+        main.rs
+        utils.rs
+    Cargo.toml
 ```
 
-The current depth convention is:
+### ⚠️ Recursion Depth
+
+**Directory traversal is currently unlimited by default (`max_depth = -1`).**
+
+Large directories may produce enormous amounts of terminal output.
+
+To change this behavior, edit the `print_directory_tree()` call in `src/main.rs`:
+
+```rust
+print_directory_tree(path, 0, -1)?;
+```
+
+Change the final argument to limit recursion:
 
 | Value | Behavior |
 |---|---|
-| `-1` | Unlimited recursion (current default) |
-| `0` | Show immediate children only |
-| `1` | Show immediate children and one additional level |
-| `2` | Show immediate children and two additional levels |
+| `-1` | Unlimited recursion (default) |
+| `0` | Immediate children only |
+| `1` | Immediate children and one additional level |
+| `2` | Immediate children and two additional levels |
 
-**Tip:** Start with a small directory or set `max_depth` to `1` or `2` before exploring a large project.
+For example:
 
-A command-line option for controlling recursion depth may be added later.
+```rust
+print_directory_tree(path, 0, 2)?;
+```
 
-### Handling errors
+Rebuild after changing the value.
+
+**Tip:** If the rat gets carried away and floods your terminal, press `Ctrl + C` to stop it.
+
+## What the Rat Doesn't Like
+
+Rats can be picky.
+
+`rat` has its own ignore list, stored in `.ratdontlike` at the project root.
+
+The current list is:
+
+```text
+.git
+.idea
+target
+.DS_Store
+```
+
+When exploring directories, `rat` automatically skips entries with these exact names, including their contents if they are directories.
+
+### How It Works
+
+The list is embedded directly into the executable at compile time:
+
+```rust
+const DISLIKES: &str = include_str!("../.ratdontlike");
+```
+
+This means:
+
+- No runtime configuration file is required.
+- Ignore rules work regardless of the current working directory.
+- Rules are matched against entry names at every directory level.
+- Empty lines and lines beginning with `#` are ignored.
+- Matching uses exact names, not wildcard patterns.
+- Modifying `.ratdontlike` requires rebuilding the executable.
+
+For example:
+
+```bash
+rat .
+```
+
+will skip `.git`, `.idea`, `target`, and `.DS_Store` entries while traversing the directory.
+
+However, explicitly requested paths are still accessible:
+
+```bash
+rat .git
+```
+
+The rat respects direct instructions. It just avoids things it doesn't like while exploring.
+
+**Note:** The `.ratdontlike` source file is required when building, but not when running the compiled executable.
+
+## Error Handling
+
+If a path does not exist:
 
 ```bash
 cargo run -- nonexistent.txt
 ```
 
+Example output:
+
 ```text
 rat: nonexistent.txt: No such file or directory (os error 2)
 ```
 
-`rat` returns a nonzero exit code when an operation fails.
+`rat` reports errors to standard error and returns a nonzero exit code when an operation fails.
+
+Currently, the command accepts exactly one path argument.
 
 ## Philosophy
 
-Keep it small. Keep it readable. Keep it Rusty.
+**Keep it small. Keep it readable. Keep it Rusty.**
 
-This is a personal learning project, not an attempt to build the next great Unix utility.
+`rat` is a personal learning project, not an attempt to build the next great Unix utility.
 
-The goal is to explore Rust through real filesystem operations, ownership, borrowing, error handling, iterators, and recursion.
+Its guiding principles are simple:
 
-A few principles guide the project:
-
-- **Respect the bytes.** Never alter file contents, not even a single byte.
-- **Let the path speak.** Files and directories should be handled according to what they are.
-- **Stay simple.** Prefer the standard library and straightforward code over unnecessary abstractions.
-- **Learn by building.** Understanding the implementation matters more than the feature count.
+- **Respect the bytes.** Never change file contents, not even a single byte.
+- **Let the path speak.** Handle files and directories according to their types.
+- **Stay lightweight.** Prefer Rust's standard library over unnecessary dependencies.
+- **Make it personal.** The tool should fit its author's workflow.
+- **Learn by building.** Understanding the code matters more than adding features.
 
 ## Project Status
 
 🚧 Early development.
 
-Currently, `rat` accepts a single path argument and supports basic file inspection and recursive directory listing.
+Currently implemented:
+
+- Single-path inspection
+- File metadata and content output
+- Recursive directory exploration
+- Configurable recursion depth in source code
+- Alphabetical directory listing
+- Compile-time embedded ignore rules
+- I/O error handling and exit codes
+
+There is no formal release schedule or roadmap. Features are added whenever something seems interesting or useful.
 
 It's a small project, and that's the point.
 

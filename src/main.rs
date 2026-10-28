@@ -6,6 +6,8 @@ use std::io::Write;
 use std::path::Path;
 use std::process::ExitCode;
 
+const DISLIKES: &str = include_str!("../.ratdontlike");
+
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();
 
@@ -13,32 +15,9 @@ fn main() -> ExitCode {
         2 => {
             let path = Path::new(&args[1]);
 
-            match print_path_info(path) {
-                Ok(file_type) => {
-                    if file_type.is_file() {
-                        match File::open(path) {
-                            Ok(mut file) => {
-                                if let Err(error) = print_file_content(&mut file) {
-                                    eprintln!("rat: {}: {error}", path.display());
-                                    return ExitCode::FAILURE;
-                                }
-                            }
-                            Err(error) => {
-                                eprintln!("rat: {}: {error}", &args[1]);
-                                return ExitCode::FAILURE;
-                            }
-                        }
-                    } else if file_type.is_dir() {
-                        if let Err(error) = print_directory_tree(path, 0, -1) {
-                            eprintln!("rat: {}: {error}", path.display());
-                            return ExitCode::FAILURE;
-                        }
-                    }
-                }
-                Err(error) => {
-                    eprintln!("rat: {}: {error}", &args[1]);
-                    return ExitCode::FAILURE;
-                }
+            if let Err(error) = run(path) {
+                eprintln!("rat: {}: {error}", path.display());
+                return ExitCode::FAILURE;
             }
         }
         _ => {
@@ -47,6 +26,19 @@ fn main() -> ExitCode {
         }
     }
     ExitCode::SUCCESS
+}
+
+fn run(path: &Path) -> io::Result<()> {
+    let file_type = print_path_info(path)?;
+
+    if file_type.is_file() {
+        let mut file = File::open(path)?;
+        print_file_content(&mut file)?;
+    } else if file_type.is_dir() {
+        print_directory_tree(path, 0, -1)?;
+    }
+
+    Ok(())
 }
 
 fn print_path_info(path: &Path) -> io::Result<FileType> {
@@ -61,12 +53,14 @@ fn print_path_info(path: &Path) -> io::Result<FileType> {
         "Other"
     };
 
-    let mut stdout = io::stdout().lock();
+    {
+        let mut stdout = io::stdout().lock();
 
-    writeln!(stdout, "Path: {}", path.display())?;
-    writeln!(stdout, "Type: {type_name}")?;
-    writeln!(stdout, "Size: {} bytes", metadata.len())?;
-    writeln!(stdout, "------------------------")?;
+        writeln!(stdout, "Path: {}", path.display())?;
+        writeln!(stdout, "Type: {type_name}")?;
+        writeln!(stdout, "Size: {} bytes", metadata.len())?;
+        writeln!(stdout, "------------------------")?;
+    }
 
     Ok(file_type)
 }
@@ -84,11 +78,27 @@ fn print_directory_tree(path: &Path, depth: usize, max_depth: i32) -> io::Result
     for entry in entries {
         let entry_path = entry.path();
 
-        for _ in 0..depth {
-            print!("    ");
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+
+        if DISLIKES
+            .lines()
+            .map(str::trim)
+            .filter(|rule| !rule.is_empty() && !rule.starts_with('#'))
+            .any(|rule| rule == name)
+        {
+            continue;
         }
 
-        println!("{}", entry.file_name().to_string_lossy());
+        {
+            let mut stdout = io::stdout().lock();
+
+            for _ in 0..depth {
+                write!(stdout, "    ")?;
+            }
+
+            writeln!(stdout, "{name}")?;
+        }
 
         if entry.file_type()?.is_dir() && (max_depth < 0 || depth < max_depth as usize) {
             print_directory_tree(&entry_path, depth + 1, max_depth)?;
